@@ -73,16 +73,12 @@ risk_log   = session.get("risk_log", [])
 label_log  = session.get("label_log", [])
 incidents  = session.get("incidents", [])
 total_seq  = session.get("total_sequences", len(label_log))
-n_normal   = session.get("normal", label_log.count("Normal"))
-n_dist     = session.get("distracted", label_log.count("Distracted"))
-n_phone    = session.get("phone_usage", label_log.count("Phone Usage"))
 max_risk   = session.get("max_risk", max(risk_log) if risk_log else 0)
 avg_risk   = session.get("avg_risk", int(np.mean(risk_log)) if risk_log else 0)
 driver     = session.get("driver", "Unknown")
 date_str   = session.get("date", "")
 
-safe_pct   = round(n_normal / max(total_seq, 1) * 100, 1)
-risky_pct  = round(100 - safe_pct, 1)
+incident_count = len(incidents)
 
 # ── Session header ─────────────────────────────────────────────────────────────
 st.markdown(f"""
@@ -100,13 +96,11 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # ── Metric cards ───────────────────────────────────────────────────────────────
-m1, m2, m3, m4, m5, m6 = st.columns(6)
+m1, m2, m3, m4 = st.columns(4)
 m1.metric("Total sequences", total_seq)
-m2.metric("Normal events",   n_normal,  delta=f"{safe_pct}%")
-m3.metric("Distractions",    n_dist,    delta=f"-{round(n_dist/max(total_seq,1)*100,1)}%",  delta_color="inverse")
-m4.metric("Phone usage",     n_phone,   delta=f"-{round(n_phone/max(total_seq,1)*100,1)}%", delta_color="inverse")
-m5.metric("Max risk",        f"{max_risk}/100")
-m6.metric("Avg risk",        f"{avg_risk}/100")
+m2.metric("Incidents",       incident_count)
+m3.metric("Max risk",        f"{max_risk}/100")
+m4.metric("Avg risk",        f"{avg_risk}/100")
 
 st.markdown("<br>", unsafe_allow_html=True)
 
@@ -156,88 +150,6 @@ with left:
     else:
         st.info("No risk data in this session.")
 
-with right:
-    st.markdown("#### Behavior split")
-    pie_values = [n_normal, n_dist, n_phone]
-    if HAS_PLOTLY:
-        if sum(pie_values) > 0:
-            fig2 = go.Figure(go.Pie(
-                labels=["Normal", "Distracted", "Phone Usage"],
-                values=pie_values,
-                hole=0.55,
-                marker_colors=["#16a34a", "#d97706", "#dc2626"],
-                textfont_color="#ffffff",
-            ))
-            fig2.update_layout(
-                paper_bgcolor="#ffffff", plot_bgcolor="#ffffff",
-                font=dict(color="#64748b", family="Inter"),
-                height=300, margin=dict(l=0, r=0, t=10, b=0),
-                legend=dict(font=dict(color="#64748b"), bgcolor="rgba(0,0,0,0)"),
-                annotations=[dict(text=f"{safe_pct}%<br>safe",
-                                  font=dict(size=13, color="#16a34a", family="Inter"),
-                                  showarrow=False)]
-            )
-            st.plotly_chart(fig2, use_container_width=True)
-        else:
-            st.info("No labeled data to display.")
-    else:
-        if sum(pie_values) > 0:
-            fig2, ax2 = plt.subplots(figsize=(4, 3))
-            ax2.pie(
-                pie_values,
-                labels=["Normal", "Distracted", "Phone"],
-                colors=["#16a34a", "#d97706", "#dc2626"],
-                textprops={"color": "#1e293b", "fontsize": 8}
-            )
-            fig2.patch.set_facecolor("#ffffff")
-            ax2.set_facecolor("#ffffff")
-            st.pyplot(fig2)
-            plt.close(fig2)
-        else:
-            st.info("No labeled data to display.")
-
-# ── Charts row 2 ───────────────────────────────────────────────────────────────
-st.markdown("<br>", unsafe_allow_html=True)
-l2, r2 = st.columns(2)
-
-with l2:
-    st.markdown("#### Behavior over time")
-    if label_log and HAS_PLOTLY:
-        label_num = {"Normal": 0, "Distracted": 1, "Phone Usage": 2}
-        nums  = [label_num.get(l, 0) for l in label_log]
-        color = ["#16a34a" if l == "Normal" else ("#d97706" if l == "Distracted" else "#dc2626")
-                 for l in label_log]
-        fig3 = go.Figure(go.Scatter(
-            x=list(range(len(nums))), y=nums, mode="markers",
-            marker=dict(color=color, size=4),
-        ))
-        fig3.update_layout(
-            paper_bgcolor="#ffffff", plot_bgcolor="#f8fafc",
-            font=dict(color="#64748b", family="Inter"),
-            height=220, margin=dict(l=20, r=10, t=10, b=30),
-            xaxis=dict(gridcolor="#e2e8f0", title="Sequence"),
-            yaxis=dict(gridcolor="#e2e8f0", tickvals=[0, 1, 2],
-                       ticktext=["Normal", "Distracted", "Phone"], title=""),
-        )
-        st.plotly_chart(fig3, use_container_width=True)
-
-with r2:
-    st.markdown("#### Risk distribution")
-    if risk_log and HAS_PLOTLY:
-        fig4 = go.Figure(go.Histogram(
-            x=risk_log, nbinsx=20,
-            marker_color="#2563eb", opacity=0.75,
-            marker_line_color="#ffffff", marker_line_width=1,
-        ))
-        fig4.update_layout(
-            paper_bgcolor="#ffffff", plot_bgcolor="#f8fafc",
-            font=dict(color="#64748b", family="Inter"),
-            height=220, margin=dict(l=20, r=10, t=10, b=30),
-            xaxis=dict(gridcolor="#e2e8f0", title="Risk score"),
-            yaxis=dict(gridcolor="#e2e8f0", title="Frequency"),
-        )
-        st.plotly_chart(fig4, use_container_width=True)
-
 # ── Safety score card ──────────────────────────────────────────────────────────
 st.markdown("<br>", unsafe_allow_html=True)
 st.markdown("#### Driver safety score")
@@ -282,8 +194,6 @@ with gc3:
       </div>
       <p style="color:#1e293b;font-size:0.9rem;line-height:1.7;margin:0;">{tips[grade]}</p>
       <div style="margin-top:1rem;font-size:0.8rem;color:#64748b;">
-        Safe driving: <strong style="color:#16a34a;">{safe_pct}%</strong> &nbsp;·&nbsp;
-        Risky events: <strong style="color:#dc2626;">{risky_pct}%</strong> &nbsp;·&nbsp;
         Incidents: <strong style="color:#d97706;">{len(incidents)}</strong>
       </div>
     </div>""", unsafe_allow_html=True)

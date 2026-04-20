@@ -22,7 +22,12 @@ st.sidebar.page_link("pages/5_Report.py",         label="Generate Report", icon=
 st.sidebar.markdown("---")
 st.sidebar.markdown("#### Settings")
 model_path      = st.sidebar.text_input("Model path", "models/cnn_lstm_best.h5")
-conf_threshold  = st.sidebar.slider("Min confidence", 0.40, 0.99, 0.60, step=0.05)
+conf_threshold  = st.sidebar.slider("Min confidence", 0.30, 0.99, 0.60, step=0.05)
+show_raw_label  = st.sidebar.checkbox(
+    "Show raw low-confidence label",
+    value=True,
+    help="Display the model's raw predicted class even when confidence is below threshold."
+)
 risk_threshold  = st.sidebar.slider("Alert threshold", 30, 90, 65)
 driver_name     = st.sidebar.text_input("Driver name", "Driver 1")
 
@@ -127,13 +132,19 @@ with tab1:
 
                 # Confidence gate — don't trust low-confidence predictions
                 if raw_conf < conf_threshold:
-                    label = "Uncertain"
-                    conf  = raw_conf
+                    conf = raw_conf
+                    if show_raw_label:
+                        label = f"{raw_label} (low confidence)"
+                        risk_label = raw_label
+                    else:
+                        label = "Uncertain"
+                        risk_label = "Normal"
                 else:
                     label = raw_label
-                    conf  = raw_conf
+                    conf = raw_conf
+                    risk_label = raw_label
 
-                risk = compute_risk(label if label in RISK_MAP else "Normal", conf)
+                risk = compute_risk(risk_label if risk_label in RISK_MAP else "Normal", conf)
                 risk_log.append(risk)
                 label_log.append(label)
                 conf_log.append(conf)
@@ -193,9 +204,6 @@ with tab1:
             "driver":            driver_name,
             "date":              datetime.now().strftime("%Y-%m-%d %H:%M"),
             "total_sequences":   len(label_log),
-            "normal":            label_log.count("Normal"),
-            "distracted":        label_log.count("Distracted"),
-            "phone_usage":       label_log.count("Phone Usage"),
             "max_risk":          int(max(risk_log)) if risk_log else 0,
             "avg_risk":          int(np.mean(risk_log)) if risk_log else 0,
             "incidents":         incidents,
@@ -213,10 +221,10 @@ with tab1:
 
         c1, c2, c3, c4, c5 = st.columns(5)
         c1.metric("Total sequences", len(label_log))
-        c2.metric("Normal",          label_log.count("Normal"))
-        c3.metric("Distracted",      label_log.count("Distracted"))
-        c4.metric("Phone usage",     label_log.count("Phone Usage"))
-        c5.metric("Max risk",        f"{max(risk_log) if risk_log else 0}/100")
+        c2.metric("Incidents",        len(incidents))
+        c3.metric("Max risk",        f"{max(risk_log) if risk_log else 0}/100")
+        c4.metric("Avg risk",        f"{int(np.mean(risk_log)) if risk_log else 0}/100")
+        c5.metric("Session",         "Saved")
 
       
 

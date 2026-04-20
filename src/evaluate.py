@@ -17,7 +17,12 @@ from sklearn.metrics import (classification_report, confusion_matrix,
                              roc_auc_score)
 
 CLASSES = ["Normal", "Distracted", "Phone Usage"]
+SEQ_LEN = 16
 os.makedirs("outputs", exist_ok=True)
+
+
+def repeat_images_to_sequences(X):
+    return np.repeat(X[:, np.newaxis, ...], SEQ_LEN, axis=1)
 
 
 def evaluate(seq_dir, model_path):
@@ -26,15 +31,21 @@ def evaluate(seq_dir, model_path):
 
     X_val = np.load(os.path.join(seq_dir, "X_val.npy"))
     y_val = np.load(os.path.join(seq_dir, "y_val.npy"))
-    print(f"Validation set: {X_val.shape[0]} sequences")
+    X_val = X_val.astype(np.float32) / 255.0
+    X_val = repeat_images_to_sequences(X_val)
+    print(f"Validation set: {X_val.shape[0]} sequences  |  dtype: {X_val.dtype}")
 
     # Predict in batches to avoid OOM
     probs = model.predict(X_val, batch_size=4, verbose=1)
     y_pred = np.argmax(probs, axis=1)
 
+    # Use only labels present in the validation/prediction set
+    labels = np.unique(np.concatenate([y_val, y_pred]))
+    class_names = [CLASSES[int(i)] for i in labels]
+
     # ── Classification report ──────────────────────────────────────────────
     print("\n── Classification Report ─────────────────────────────")
-    print(classification_report(y_val, y_pred, target_names=CLASSES))
+    print(classification_report(y_val, y_pred, labels=labels, target_names=class_names))
 
     # AUC (one-vs-rest)
     try:
@@ -47,18 +58,18 @@ def evaluate(seq_dir, model_path):
         print(f"  ROC-AUC not computed: {e}")
 
     # ── Confusion matrix ───────────────────────────────────────────────────
-    cm = confusion_matrix(y_val, y_pred)
+    cm = confusion_matrix(y_val, y_pred, labels=labels)
     cm_norm = cm.astype(float) / cm.sum(axis=1, keepdims=True)
 
     fig, axes = plt.subplots(1, 2, figsize=(12, 5))
 
     sns.heatmap(cm, annot=True, fmt="d", cmap="Blues",
-                xticklabels=CLASSES, yticklabels=CLASSES, ax=axes[0])
+                xticklabels=class_names, yticklabels=class_names, ax=axes[0])
     axes[0].set_title("Confusion matrix (counts)")
     axes[0].set_xlabel("Predicted"); axes[0].set_ylabel("True")
 
     sns.heatmap(cm_norm, annot=True, fmt=".2f", cmap="Blues",
-                xticklabels=CLASSES, yticklabels=CLASSES, ax=axes[1])
+                xticklabels=class_names, yticklabels=class_names, ax=axes[1])
     axes[1].set_title("Confusion matrix (normalised)")
     axes[1].set_xlabel("Predicted"); axes[1].set_ylabel("True")
 
@@ -70,8 +81,8 @@ def evaluate(seq_dir, model_path):
     # ── Per-class accuracy bar chart ───────────────────────────────────────
     per_class_acc = cm_norm.diagonal()
     fig2, ax = plt.subplots(figsize=(7, 4))
-    bars = ax.bar(CLASSES, per_class_acc,
-                  color=["#4caf50", "#ff9800", "#f44336"])
+    bars = ax.bar(class_names, per_class_acc,
+                  color=["#4caf50", "#ff9800", "#f44336"][:len(class_names)])
     ax.set_ylim(0, 1.05)
     ax.set_ylabel("Accuracy"); ax.set_title("Per-class accuracy")
     for bar, val in zip(bars, per_class_acc):

@@ -53,12 +53,8 @@ incidents    = session.get("incidents", [])
 driver       = session.get("driver", "Unknown")
 date_str     = session.get("date", datetime.now().strftime("%Y-%m-%d %H:%M"))
 total_seq    = session.get("total_sequences", len(label_log))
-n_normal     = session.get("normal", label_log.count("Normal"))
-n_dist       = session.get("distracted", label_log.count("Distracted"))
-n_phone      = session.get("phone_usage", label_log.count("Phone Usage"))
 max_risk     = session.get("max_risk", max(risk_log) if risk_log else 0)
 avg_risk     = session.get("avg_risk", int(np.mean(risk_log)) if risk_log else 0)
-safe_pct     = round(n_normal / max(total_seq, 1) * 100, 1)
 safety_score = max(0, 100 - avg_risk)
 grade        = "A" if safety_score >= 90 else ("B" if safety_score >= 75 else ("C" if safety_score >= 60 else ("D" if safety_score >= 45 else "F")))
 grade_color  = "#16a34a" if grade in ("A", "B") else ("#d97706" if grade == "C" else "#dc2626")
@@ -94,9 +90,9 @@ if incidents:
 summary_top = ""
 for lbl, val, col in [
     ("SEQUENCES",  total_seq,         "#0f172a"),
-    ("SAFE %",     f"{safe_pct}%",    "#16a34a"),
     ("INCIDENTS",  len(incidents),    "#d97706"),
     ("MAX RISK",   f"{max_risk}/100", "#dc2626"),
+    ("AVG RISK",   f"{avg_risk}/100", "#0f172a"),
 ]:
     summary_top += (
         '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;'
@@ -108,12 +104,9 @@ for lbl, val, col in [
 
 summary_bottom = ""
 for lbl, val, col in [
-    ("NORMAL EVENTS",  n_normal,          "#16a34a"),
-    ("DISTRACTED",     n_dist,            "#d97706"),
-    ("PHONE USAGE",    n_phone,           "#dc2626"),
-    ("AVG RISK",       f"{avg_risk}/100", "#0f172a"),
     ("SAFETY SCORE",   f"{safety_score}/100", "#16a34a"),
     ("SAFETY GRADE",   grade,             grade_color),
+    ("RISK INCIDENTS", len(incidents),    "#dc2626"),
 ]:
     summary_bottom += (
         '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:0.8rem;">'
@@ -172,13 +165,3 @@ with dl2:
     )
 
 
-
-st.markdown("<br>", unsafe_allow_html=True)
-st.markdown("""
-<div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:10px;
-            padding:1rem 1.2rem;font-size:0.82rem;color:#64748b;">
-  <span style="font-weight:600;color:#2563eb;">NOTE</span>
-  &nbsp; The HTML report opens in any browser and can be printed as a PDF using
-  <strong style="color:#1e293b;">Ctrl+P → Save as PDF</strong> — no extra software needed.
-</div>
-""", unsafe_allow_html=True)
