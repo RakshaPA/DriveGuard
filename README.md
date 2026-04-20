@@ -141,21 +141,4 @@ Input: (16, 224, 224, 3)            ← 16-frame sequence
 
 ---
 
-## Viva talking points
 
-**"What is your input?"**
-> The input is a dashcam video stream converted into 16-frame sequences of shape
-> (16, 224, 224, 3), fed into a CNN-LSTM model.
-
-**"What is your output?"**
-> The output is a behavior classification (Normal / Distracted / Phone Usage)
-> with a confidence score and a real-time risk score from 0–100.
-
-**"How does the LSTM help?"**
-> The CNN extracts spatial features per frame. The LSTM learns the temporal
-> pattern across 16 consecutive frames — a single frame cannot distinguish
-> reaching for a phone from a normal hand movement, but a sequence can.
-
-**"How do you explain the model's decisions?"**
-> Grad-CAM generates heatmaps showing which pixels activated the CNN's prediction.
-> For phone usage, the heatmap highlights the hand and phone region.
